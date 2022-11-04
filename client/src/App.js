@@ -4,10 +4,12 @@ import { Piano, KeyboardShortcuts, MidiNumbers  } from 'react-piano'
 import 'react-piano/dist/styles.css';
 import * as Tone from 'tone'
 import { Distortion } from 'tone';
-import {useState} from "react"
+import {useState, useEffect} from "react"
 
 
 function App() {
+  const [synths, setSynths] = useState([])
+  const [name, setName] = useState("")
   const [dist, setDist] = useState(0)
   const [feedBack, setFeedBack] = useState(0)
   const [reverb, setReverb] = useState(0)
@@ -22,6 +24,11 @@ function App() {
   const distortion = new Tone.Distortion(dist).toDestination();
   const feedbackDelay = new Tone.FeedbackDelay(feedBack, 0.5).toDestination();
   const Reverb = new Tone.Reverb(1.5, reverb).toDestination();
+  useEffect(() => {
+    fetch('/synths')
+    .then(res => res.json())
+    .then(data => setSynths(data))
+  },[])
 
   if (dist > 0) {
     synth.connect(distortion)
@@ -46,16 +53,52 @@ function App() {
     setReverb(e.target.value)
   }
 
-  function handleSubmit() {
-    
+  function handleNameChange(e) {
+    setName(e.target.value)
   }
 
+  function handleSubmit(e) {
+    e.preventDefault()
+        const headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
+        const options = {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              name: name,
+              distortion: dist,
+              feedBack: feedBack,
+              reverb: reverb
+            })
+        }
+        fetch('/synths', options)
+        .then(res => res.json())
+        .then(data => console.log(data))
+  }
+
+  function handleSynthLoad(e) {
+    e.preventDefault()
+    console.log(e.target.value)
+    const currrentsynth = synths.filter(synth => synth.name === e.target.value)
+    console.log(currrentsynth)
+    setName(currrentsynth[0].name)
+    setDist(currrentsynth[0].distortion)
+    setFeedBack(currrentsynth[0].feedBack)
+    setReverb(currrentsynth[0].reverb)
+  }
 
   
 
   return (
     <div className="App">
       <form onSubmit={handleSubmit}>
+      <div>
+          <label>Sound Name</label>
+          <br/>
+          <input type={"text"} value={name} onChange={handleNameChange}/>
+        </div>
         <div>
           <label>Distortion</label>
           <br/>
@@ -73,6 +116,7 @@ function App() {
         </div>
         <input type={"submit"} value={"Save"}/>
       </form>
+      {synths ? <select onChange={handleSynthLoad}>{synths.map((synth) => <option key={synth.id}>{synth.name}</option>)}</select> : <h1>Loading...</h1>}
       <Piano 
       noteRange={{ first: 48, last: 77 }}
       playNote={(midiNumber) => {
